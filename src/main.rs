@@ -3,9 +3,9 @@ mod data_transfer;
 mod sensors;
 mod wifi;
 
-use esp_idf_hal::peripheral::PeripheralRef;
+use data_transfer::httpd;
 use esp_idf_sys::{self as _, EspError};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Mutex};
 // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 use std::time::Duration;
 
@@ -14,9 +14,9 @@ use esp_idf_hal::i2c::{self};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::units::FromValueType;
 
-use sensors::{BME280Sensor, GY30Sensor, Sensor, SensorValue};
+use sensors::{BME280Sensor, GY30Sensor, Sensor, SensorData};
 use wifi::Wifi;
-use crate::data_transfer::httpd;
+pub use crate::data_provider::DataProvider;
 
 fn main() {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -34,11 +34,6 @@ fn main() {
     //wifi.scan().unwrap();
     wifi.connect("sakhmil", "qlsh7760").unwrap();
 
-    let mutex = Arc::new((Mutex::new(None), Condvar::new()));
-    let httpd = httpd(mutex.clone());
-
-    let mut _wait = mutex.0.lock().unwrap();
-
     // for i in 0..127 {
     //     let res = i2c_inst.read(i, &mut buffer, 10);
     //     match res {
@@ -55,26 +50,34 @@ fn main() {
 
     let mut gy30 = GY30Sensor::new("GY30", bus.acquire_i2c(), delay::Ets);
 
+    let data_provider = DataProvider::new();
+    let _http_server = httpd(data_provider.clone());
+
     loop {
+        bme280.measure_cmd();
         bme280.read();
-
         println!("{} values:", bme280.get_name());
-        let bme280_values = bme280.get_values();
-        for val_ref in bme280_values {
-            let (name, value) = val_ref.get_name_n_value();
-            println!("  {name}: {value}");
-        }
+        let bme280_data = bme280.get_data();
+        print_sensor_data(bme280_data);
 
-        gy30.init().unwrap();
+        gy30.measure_cmd();
         gy30.read();
-        println!("{} values:", gy30.get_name());
-        let gy30_values = gy30.get_values();
-        for val_ref in gy30_values {
-            let (name, value) = val_ref.get_name_n_value();
-            println!("  {name}: {value}");
-        }
+        let gy30_data = gy30.get_data();
+        print_sensor_data(gy30_data);
+
+        data_provider.lock().unwrap().push_data(bme280.get_name(), bme280_data);
+        data_provider.lock().unwrap().push_data(gy30.get_name(), gy30_data);
 
         std::thread::sleep(Duration::from_secs(1));
+    }
+}
+
+fn print_sensor_data(sensor_data: &SensorData) {
+    println!("{} values:", sensor_data.get_name());
+    let gy30_values = sensor_data.get_values();
+    for val_ref in gy30_values {
+        let (name, value) = val_ref.get_name_n_value();
+        println!("  {name}: {value}");
     }
 }
 

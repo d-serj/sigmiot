@@ -23,14 +23,14 @@ pub struct SensorData {
 }
 
 impl SensorData {
-    fn new(sensor_name: &str) -> Self {
+    pub fn new(sensor_name: &str) -> Self {
         Self {
             name: sensor_name.into(),
             values: HashMap::new(),
         }
     }
 
-    fn push_value(&mut self, name: &str, value: f32) {
+    pub fn push_value(&mut self, name: &str, value: f32) {
         let sensor_value = self.values.entry(name.to_string()).or_insert(SensorValue {
             value_name: name.into(),
             value,
@@ -38,12 +38,21 @@ impl SensorData {
 
         sensor_value.value = value;
     }
+
+    pub fn get_values(&self) -> Vec<&SensorValue> {
+        self.values.values().collect()
+    }
+
+    pub fn get_name(&self) -> &String {
+        &self.name
+    }
 }
 
 pub trait Sensor {
     fn init(&mut self) -> Result<(), ()>;
+    fn measure_cmd(&mut self);
     fn read(&mut self);
-    fn get_values(&self) -> Vec<&SensorValue>;
+    fn get_data(&self) -> &SensorData;
     fn get_name(&self) -> &String;
 }
 
@@ -93,10 +102,10 @@ where
         let mut buffer: [u8; 2] = [0, 0];
 
         // Read the illumination level
-        self.i2c.write(self.addr, &[0x00]).map_err(|_| ());
+        self.i2c.write(self.addr, &[0x00]).map_err(|_| ()).expect("Cannot write I2c!");
         // Should wait more than 180ms
         self.delay.delay_ms(200);
-        self.i2c.read(self.addr, &mut buffer).map_err(|_| ());
+        self.i2c.read(self.addr, &mut buffer).map_err(|_| ()).expect("Cannot read I2c!");
 
         let illumination_level = ((buffer[0] as u16) << 8) | (buffer[1] as u16);
 
@@ -104,12 +113,16 @@ where
             .push_value("illuminance", illumination_level as f32);
     }
 
-    fn get_values(&self) -> Vec<&SensorValue> {
-        self.data.values.values().collect()
+    fn get_data(&self) -> &SensorData {
+        &self.data
     }
 
     fn get_name(&self) -> &String {
         &self.data.name
+    }
+
+    fn measure_cmd(&mut self) {
+        self.init().unwrap()
     }
 }
 
@@ -150,11 +163,15 @@ where
         self.data.push_value("pressure", pressure as f32);
     }
 
-    fn get_values(&self) -> Vec<&SensorValue> {
-        self.data.values.values().collect()
+    fn get_data(&self) -> &SensorData {
+        &self.data
     }
 
     fn get_name(&self) -> &String {
         &self.data.name
+    }
+
+    fn measure_cmd(&mut self) {
+        // nothing to do for BME280
     }
 }
