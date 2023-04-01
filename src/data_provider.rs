@@ -21,8 +21,10 @@ impl DataProvider {
         let input_sensor_values = sensor_data.get_values();
 
         for sensor_value in input_sensor_values.iter() {
-             let (name, value) = sensor_value.get_name_n_value();
-             sensor_values.push_value(name, value);
+             let value_name = &sensor_value.value_name;
+             let value = sensor_value.value;
+             let unit = &sensor_value.unit;
+             sensor_values.push_value(value_name, value, unit.as_str());
         }
     }
 
@@ -38,8 +40,10 @@ impl DataProvider {
             let sensor_data = sensor.1;
             let sensor_values = sensor_data.get_values();
             for val_ref in sensor_values {
-                let (name, value) = val_ref.get_name_n_value();
-                buf.push_str(&format!("<li>{}: {}</li>\n", name, value));
+                let value_name = val_ref.value_name.as_str();
+                let value = val_ref.value;
+                let unit = val_ref.unit.as_str();
+                buf.push_str(&format!("<li>{}: {} {}</li>\n", value_name, value as i32, unit));
             }
 
             buf.push_str("</ul>\n");

@@ -56,7 +56,6 @@ fn main() {
     loop {
         bme280.measure_cmd();
         bme280.read();
-        println!("{} values:", bme280.get_name());
         let bme280_data = bme280.get_data();
         print_sensor_data(bme280_data);
 
@@ -76,8 +75,10 @@ fn print_sensor_data(sensor_data: &SensorData) {
     println!("{} values:", sensor_data.get_name());
     let gy30_values = sensor_data.get_values();
     for val_ref in gy30_values {
-        let (name, value) = val_ref.get_name_n_value();
-        println!("  {name}: {value}");
+        let value_name = &val_ref.value_name;
+        let value = val_ref.value;
+        let unit = &val_ref.unit;
+        println!("  {value_name}: {value} {unit}");
     }
 }
 

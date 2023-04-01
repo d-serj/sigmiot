@@ -6,14 +6,9 @@ use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 
 #[derive(Debug)]
 pub struct SensorValue {
-    value_name: String,
-    value: f32,
-}
-
-impl SensorValue {
-    pub fn get_name_n_value(&self) -> (&String, f32) {
-        ( &self.value_name, self.value )
-    }
+    pub value_name: String,
+    pub value: f32,
+    pub unit: String,
 }
 
 #[derive(Debug)]
@@ -30,10 +25,11 @@ impl SensorData {
         }
     }
 
-    pub fn push_value(&mut self, name: &str, value: f32) {
+    pub fn push_value(&mut self, name: &str, value: f32, unit: &str) {
         let sensor_value = self.values.entry(name.to_string()).or_insert(SensorValue {
             value_name: name.into(),
             value,
+            unit: unit.into(),
         });
 
         sensor_value.value = value;
@@ -110,7 +106,7 @@ where
         let illumination_level = ((buffer[0] as u16) << 8) | (buffer[1] as u16);
 
         self.data
-            .push_value("illuminance", illumination_level as f32);
+            .push_value("illuminance", illumination_level as f32, "lx");
     }
 
     fn get_data(&self) -> &SensorData {
@@ -158,9 +154,9 @@ where
         let humidity = self.bme280.measure().map_err(|_| ()).unwrap().humidity;
         let pressure = self.bme280.measure().map_err(|_| ()).unwrap().pressure;
 
-        self.data.push_value("temperature", temperature as f32);
-        self.data.push_value("humidity", humidity as f32);
-        self.data.push_value("pressure", pressure as f32);
+        self.data.push_value("temperature", temperature as f32, "°C");
+        self.data.push_value("humidity", humidity as f32, "%");
+        self.data.push_value("pressure", pressure as f32, "hPa");
     }
 
     fn get_data(&self) -> &SensorData {
