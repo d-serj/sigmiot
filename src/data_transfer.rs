@@ -42,12 +42,49 @@ pub fn httpd(
 
     let mut server =  EspHttpServer::new(&Default::default())?;
 
+
     server
-    .fn_handler("/", Method::Get, move|req| {
+    .fn_handler("/sensors", Method::Get, move|req| {
         let clone = data.clone();
         let raw_data = clone.lock().unwrap().get_http_data();
         req.into_ok_response()?
             .write_all(raw_data.as_bytes())?;
+
+        Ok(())
+    })?
+    .fn_handler("/", Method::Get, move|req| {
+        let response = format!(
+            r#"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Auto-Update Example</title>
+            </head>
+            <body>
+                <h1>Sensor Data</h1>
+                <div id="sensor-data"></div>
+                <script>
+                    function updateSensorData() {{
+                        var xhr = new XMLHttpRequest();
+                        xhr.onreadystatechange = function() {{
+                            if (this.readyState == 4 && this.status == 200) {{
+                                var sensorDataDiv = document.getElementById("sensor-data");
+                                sensorDataDiv.innerHTML = this.responseText;
+                            }}
+                        }};
+                        xhr.open("GET", "/sensors", true);
+                        xhr.send();
+                    }}
+                    setInterval(updateSensorData, 1000);
+                </script>
+            </body>
+            </html>
+            "#
+        );
+        req.into_ok_response()?
+            .write_all(response.as_bytes())?;
+
+        println!("Client connected");
 
         Ok(())
     })?;
