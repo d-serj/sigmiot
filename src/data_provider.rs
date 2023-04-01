@@ -6,8 +6,6 @@ pub struct DataProvider {
     sensors: HashMap<String, SensorData>,
 }
 
-unsafe impl Send for DataProvider {}
-
 impl DataProvider {
     pub fn new() -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self { sensors: HashMap::new() }))
