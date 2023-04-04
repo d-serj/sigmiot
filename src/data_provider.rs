@@ -16,7 +16,7 @@ impl DataProvider {
         let sensor_values = self
             .sensors
             .entry(name.to_string())
-            .or_insert(SensorData::new(name));
+            .or_insert_with(|| SensorData::new(name));
 
         let input_sensor_values = sensor_data.get_values();
 

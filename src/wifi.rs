@@ -1,7 +1,6 @@
 
 use std::net::Ipv4Addr;
 use std::time::Duration;
-use anyhow::bail;
 
 use embedded_svc::wifi::*;
 

@@ -1,10 +1,8 @@
 
-use std::sync::{Mutex, Condvar, Arc};
+use std::sync::{Mutex, Arc};
 
 use anyhow::Error;
-use embedded_svc::http::server::{
-    Connection, Handler, HandlerResult, Method, Middleware, Query, Request, Response,
-};
+use embedded_svc::http::server::Method;
 use embedded_svc::io::Write;
 use esp_idf_svc::http::server::{fn_handler, EspHttpServer};
 use crate::data_provider::DataProvider;
@@ -42,7 +40,6 @@ pub fn httpd(
 
     let mut server =  EspHttpServer::new(&Default::default())?;
 
-
     server
     .fn_handler("/sensors", Method::Get, move|req| {
         let clone = data.clone();
@@ -53,7 +50,7 @@ pub fn httpd(
         Ok(())
     })?
     .fn_handler("/", Method::Get, move|req| {
-        let response = format!(
+        let response =
             r#"
             <!DOCTYPE html>
             <html>
@@ -79,8 +76,7 @@ pub fn httpd(
                 </script>
             </body>
             </html>
-            "#
-        );
+            "#.to_string();
         req.into_ok_response()?
             .write_all(response.as_bytes())?;
 

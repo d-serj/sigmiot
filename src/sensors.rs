@@ -154,9 +154,9 @@ where
         let humidity = self.bme280.measure().map_err(|_| ()).unwrap().humidity;
         let pressure = self.bme280.measure().map_err(|_| ()).unwrap().pressure;
 
-        self.data.push_value("temperature", temperature as f32, "°C");
-        self.data.push_value("humidity", humidity as f32, "%");
-        self.data.push_value("pressure", pressure as f32, "hPa");
+        self.data.push_value("temperature", temperature, "°C");
+        self.data.push_value("humidity", humidity, "%");
+        self.data.push_value("pressure", pressure, "hPa");
     }
 
     fn get_data(&self) -> &SensorData {

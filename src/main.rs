@@ -5,7 +5,6 @@ mod wifi;
 
 use data_transfer::httpd;
 use esp_idf_sys::{self as _, EspError};
-use std::sync::{Arc, Mutex};
 // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 use std::time::Duration;
 
