@@ -3,15 +3,21 @@ use std::collections::HashMap;
 use bme280::i2c::BME280;
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
+use embassy_time::{Timer, Duration};
+use esp_idf_hal::task::embassy_sync::EspRawMutex;
+use embassy_sync::channel::Sender;
 
-#[derive(Debug)]
+use crate::DATA_CHANNEL_SIZE;
+use crate::data_provider::DataMessage;
+
+#[derive(Debug, Clone)]
 pub struct SensorValue {
     pub value_name: String,
     pub value: f32,
     pub unit: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SensorData {
     name: String,
     values: HashMap<String, SensorValue>,
@@ -144,9 +150,19 @@ impl<I2C, D, E> Sensor for BME280Sensor<I2C, D>
 where
     I2C: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>,
     D: DelayMs<u8>,
+    E: std::fmt::Debug
 {
     fn init(&mut self) -> Result<(), ()> {
-        self.bme280.init().map_err(|_| ())
+        //self.bme280.init().map_err(|_| ())
+        let res = self.bme280.init();
+
+        match res {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                println!("Error: {:?}", e);
+                Err(())
+            }
+        }
     }
 
     fn read(&mut self) {
@@ -169,5 +185,79 @@ where
 
     fn measure_cmd(&mut self) {
         // nothing to do for BME280
+    }
+}
+
+pub struct SensorManager {
+    sensors: Vec<Box<dyn Sensor>>,
+}
+
+impl SensorManager {
+    pub fn new() -> Self {
+        Self { sensors: vec![], }
+    }
+
+    pub fn add_sensor(&mut self, sensor: Box<dyn Sensor>) {
+        self.sensors.push(sensor);
+    }
+
+    fn get_sensors(&self) -> &Vec<Box<dyn Sensor>> {
+        &self.sensors
+    }
+
+    fn get_sensor(&self, sensor_name: &str) -> Option<&Box<dyn Sensor>> {
+        self.get_sensors().iter().find(|s| s.get_name() == sensor_name)
+    }
+
+    pub fn get_sensor_data(&self, sensor_name: &str) -> Option<&SensorData> {
+        self.get_sensor(sensor_name).map(|s| s.get_data())
+    }
+
+    pub fn get_sensor_values(&self, sensor_name: &str) -> Option<Vec<&SensorValue>> {
+        self.get_sensor_data(sensor_name).map(|s| s.get_values())
+    }
+
+    pub fn measure(&mut self) {
+        for sensor in self.sensors.iter_mut() {
+            sensor.measure_cmd();
+        }
+    }
+
+    pub fn read(&mut self) {
+        for sensor in self.sensors.iter_mut() {
+            sensor.read();
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn print_sensors_data(&self) {
+        for sensor in self.sensors.iter() {
+            println!("{}:", sensor.get_name());
+            for value in sensor.get_data().get_values() {
+                println!("{}: {} {}", value.value_name, value.value, value.unit);
+            }
+        }
+    }
+}
+
+pub async fn run_sensor_manager(
+    mut sensor_manager: SensorManager,
+    sender: Sender<'static, EspRawMutex, DataMessage, DATA_CHANNEL_SIZE>
+) {
+    loop {
+        sensor_manager.measure();
+        sensor_manager.read();
+        //sensor_manager.print_sensors_data().await;
+
+        let sensors_list: Vec<SensorData> = Vec::new();
+        let mut msg: DataMessage = DataMessage { data: sensors_list };
+
+        for sensor in sensor_manager.get_sensors().iter() {
+            msg.data.push(sensor.get_data().clone());
+        }
+
+        sender.send(msg).await;
+
+        Timer::after(Duration::from_secs(1)).await;
     }
 }

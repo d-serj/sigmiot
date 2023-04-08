@@ -1,44 +1,45 @@
-use std::{collections::HashMap, sync::{Arc, Mutex}};
+use std::{sync::{Arc, Mutex}, time::Duration};
 
-use crate::sensors::SensorData;
+use esp_idf_hal::task::embassy_sync::EspRawMutex;
+use embassy_sync::channel::Receiver;
+
+use crate::{sensors::SensorData, DATA_CHANNEL_SIZE};
+
+pub struct DataMessage {
+    pub data: Vec<SensorData>,
+}
 
 pub struct DataProvider {
-    sensors: HashMap<String, SensorData>,
+    data_receiver: Receiver<'static, EspRawMutex, DataMessage, DATA_CHANNEL_SIZE>,
+    prev_data: Vec<SensorData>,
 }
 
 impl DataProvider {
-    pub fn new() -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(Self { sensors: HashMap::new() }))
+    pub fn new(
+        data_receiver: Receiver<'static, EspRawMutex, DataMessage, DATA_CHANNEL_SIZE>,
+    ) -> Arc<Mutex<Self>> {
+        Arc::new(Mutex::new(Self { data_receiver, prev_data: Vec::new(), }))
     }
 
-    pub fn push_data(&mut self, name: &str, sensor_data: &SensorData) {
-
-        let sensor_values = self
-            .sensors
-            .entry(name.to_string())
-            .or_insert_with(|| SensorData::new(name));
-
-        let input_sensor_values = sensor_data.get_values();
-
-        for sensor_value in input_sensor_values.iter() {
-             let value_name = &sensor_value.value_name;
-             let value = sensor_value.value;
-             let unit = &sensor_value.unit;
-             sensor_values.push_value(value_name, value, unit.as_str());
+    fn get_data(&mut self) -> &Vec<SensorData> {
+        if let Ok(msg) = self.data_receiver.try_recv() {
+            self.prev_data = msg.data.clone();
+            &self.prev_data
+        }
+        else {
+            &self.prev_data
         }
     }
 
-    pub fn get_http_data(&self) -> String {
+    pub fn get_http_data(&mut self) -> String {
+        let sensors_data = self.get_data();
         let mut buf = String::new();
 
-        let sensors = &self.sensors;
-
-        for sensor in sensors.iter() {
-            buf.push_str(&format!("<h2>{}</h2>\n", sensor.0));
+        for sensor in sensors_data.iter() {
+            buf.push_str(&format!("<h2>{}</h2>\n", sensor.get_name()));
             buf.push_str("<ul>\n");
 
-            let sensor_data = sensor.1;
-            let sensor_values = sensor_data.get_values();
+            let sensor_values = sensor.get_values();
             for val_ref in sensor_values {
                 let value_name = val_ref.value_name.as_str();
                 let value = val_ref.value;
