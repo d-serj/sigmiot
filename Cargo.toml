@@ -15,18 +15,35 @@ opt-level = "z"
 [features]
 default = ["experimental"]
 pio = ["esp-idf-sys/pio"]
-experimental = ["esp-idf-svc/experimental", "embedded-svc/experimental"]
+experimental = ["embedded-svc/experimental"]
 
 [dependencies]
 anyhow = { version = "1", features = ["backtrace"] }
 esp-idf-sys = { version = "0.32.1", features = ["binstart", "panic_handler", "alloc_handler"] }
-esp-idf-hal = "0.40.1"
-esp-idf-svc = "0.45.0"
-embedded-svc = "0.24.0"
+esp-idf-hal = { version = "0.40.1", features = [ "embassy-sync", "edge-executor", "critical-section" ] }
+esp-idf-svc = { version = "0.45.0", features = [
+    "nightly",
+    "experimental",
+    "embassy-time-driver",
+    "embassy-time-isr-queue",
+    "alloc",
+] }
+
+embedded-svc = { version = "0.24.0", features = ["nightly", "experimental"] }
+
+embassy-sync = { version = "0.1", features = ["std"] }
+embassy-time = "0.1"
+
 embedded-hal = "0.2"
 bme280 = { version = "0.3.0", features = ["serde"] }
-shared-bus = "0.2.5"
+shared-bus = { version = "0.2.5", features = ["std"] }
+
+heapless = "0.7.16"
+log ={ version = "0.4.17"}
+
+serde = "1.0.159"
+serde_json = { version = "1.0.95", default-features = false, features = ["alloc"] }
 
 [build-dependencies]
-embuild = "0.31.0"
+embuild = "0.31.1"
 anyhow = "1"
