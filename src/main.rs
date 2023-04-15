@@ -88,36 +88,4 @@ fn main() {
     spawn::run(&mut executor_high_prio, tasks_high_prio);
 
     unreachable!("This should never be reached");
-
-    // ThreadSpawnConfiguration {
-    //     name: Some(b"async-exec-mid\0"),
-    //     ..Default::default()
-    // }
-    // .set()
-    // .unwrap();
-
-    // let mut tasks_low_prio = heapless::Vec::<_, 2>::new();
-    // let mut executor_low_prio = EspExecutor::<2, _>::new();
-
-
-
-    //spawn::data_collect(&mut executor_low_prio, &mut tasks_low_prio, sensor_manager).unwrap();
-
-
-    // loop {
-    //     bme280.measure_cmd();
-    //     bme280.read();
-    //     let bme280_data = bme280.get_data();
-    //     print_sensor_data(bme280_data);
-
-    //     gy30.measure_cmd();
-    //     gy30.read();
-    //     let gy30_data = gy30.get_data();
-    //     print_sensor_data(gy30_data);
-
-    //     data_provider.lock().unwrap().push_data(bme280.get_name(), bme280_data);
-    //     data_provider.lock().unwrap().push_data(gy30.get_name(), gy30_data);
-
-    //     std::thread::sleep(Duration::from_secs(1));
-    // }
 }
