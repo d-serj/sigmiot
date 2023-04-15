@@ -249,8 +249,9 @@ pub async fn run_sensor_manager(
         sensor_manager.read();
         //sensor_manager.print_sensors_data().await;
 
-        let sensors_list: Vec<SensorData> = Vec::new();
-        let mut msg: DataMessage = DataMessage { data: sensors_list };
+        let mut msg: DataMessage = DataMessage {
+            data: Vec::with_capacity(sensor_manager.get_sensors().len())
+        };
 
         for sensor in sensor_manager.get_sensors().iter() {
             msg.data.push(sensor.get_data().clone());
