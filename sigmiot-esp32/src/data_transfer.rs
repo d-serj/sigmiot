@@ -12,53 +12,20 @@ use esp_idf_svc::http::server::{fn_handler, EspHttpServer, ws::EspHttpWsProcesso
 use embedded_svc::ws::asynch::server::Acceptor;
 use esp_idf_hal::task::embassy_sync::EspRawMutex;
 
-use crate::data_provider::DataProvider;
+use crate::data_channel::get_http_data;
 use crate::ws::{self, *};
 
-pub trait DataTransfer {
-    fn init(&mut self) -> Result<(), Error>;
-    fn send_data(&self, data: &DataProvider) -> Result<(), Error>;
-}
-
-pub struct HttpServer {
-
-}
-
-impl HttpServer {
-    fn new() -> Self {
-        Self { }
-    }
-
-   // fn post()
-}
-
-impl DataTransfer for HttpServer {
-    fn init(&mut self) -> Result<(), Error> {
-        todo!()
-    }
-
-    fn send_data(&self, data: &DataProvider) -> Result<(), Error> {
-        todo!()
-    }
-}
-
 pub struct Config {
-    wifi_ssid: &'static str,
-    wifi_psk: &'static str,
     ws_max_con: usize,
     ws_max_frame_size: usize,
 }
 
 const CONFIG: Config = Config {
-    wifi_ssid: "ENTER_YOUR_SSID",
-    wifi_psk: "ENTER_YOUR_PW",
     ws_max_con: 2,
     ws_max_frame_size: 4096,
 };
 
-pub fn httpd(
-    data: Arc<Mutex<DataProvider>>,
-) -> Result<(EspHttpServer, impl Acceptor), Error> {
+pub fn httpd() -> Result<(EspHttpServer, impl Acceptor), Error> {
 
     let (ws_processor, ws_acceptor) =
         EspHttpWsProcessor::<{ CONFIG.ws_max_con}, { CONFIG.ws_max_frame_size }>::new(());
@@ -69,8 +36,7 @@ pub fn httpd(
 
     server
         .fn_handler("/sensors", Method::Get, move|req| {
-            let clone = data.clone();
-            let raw_data = clone.lock().unwrap().get_http_data();
+            let raw_data = get_http_data();
             req.into_ok_response()?
                 .write_all(raw_data.as_bytes())?;
 

@@ -1,13 +1,11 @@
-mod data_provider;
+mod data_channel;
 mod data_transfer;
 mod sensors;
+mod spawn;
 mod wifi;
 mod ws;
-mod spawn;
 
-use data_provider::DataMessage;
 use data_transfer::httpd;
-use esp_idf_hal::task::embassy_sync::EspRawMutex;
 use esp_idf_hal::task::executor::EspExecutor;
 use esp_idf_svc::log::EspLogger;
 use esp_idf_sys::{self as _, EspError};
@@ -21,12 +19,8 @@ use esp_idf_hal::units::FromValueType;
 
 use sensors::{BME280Sensor, GY30Sensor, Sensor};
 use wifi::Wifi;
-pub use crate::data_provider::DataProvider;
 
 static LOGGER: EspLogger = EspLogger;
-
-const DATA_CHANNEL_SIZE: usize = 2;
-static CHANNEL: embassy_sync::channel::Channel::<EspRawMutex, DataMessage, DATA_CHANNEL_SIZE> = embassy_sync::channel::Channel::new();
 
 fn main() {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -66,15 +60,12 @@ fn main() {
 
     let bus: &'static _ = shared_bus::new_std!(i2c::I2cDriver = i2c_inst).unwrap();
 
-    let mut bme280 =
-        Box::new(BME280Sensor::new("BME280", bus.acquire_i2c(), delay::Ets));
+    let mut bme280 = Box::new(BME280Sensor::new("BME280", bus.acquire_i2c(), delay::Ets));
     bme280.init().unwrap();
 
-    let gy30 =
-        Box::new(GY30Sensor::new("GY30", bus.acquire_i2c(), delay::Ets));
+    let gy30 = Box::new(GY30Sensor::new("GY30", bus.acquire_i2c(), delay::Ets));
 
-    let data_provider = DataProvider::new(CHANNEL.receiver());
-    let (_http, ws_acceptor) = httpd(data_provider).unwrap();
+    let (_http, ws_acceptor) = httpd().unwrap();
 
     let mut tasks_high_prio = heapless::Vec::<_, 16>::new();
     let mut executor_high_prio = EspExecutor::<16, _>::new();
@@ -83,7 +74,13 @@ fn main() {
     sensor_manager.add_sensor(bme280);
     sensor_manager.add_sensor(gy30);
 
-    spawn::collect_high_prio(&mut executor_high_prio, &mut tasks_high_prio, ws_acceptor, sensor_manager, CHANNEL.sender()).unwrap();
+    spawn::collect_high_prio(
+        &mut executor_high_prio,
+        &mut tasks_high_prio,
+        ws_acceptor,
+        sensor_manager,
+    )
+    .unwrap();
 
     spawn::run(&mut executor_high_prio, tasks_high_prio);
 

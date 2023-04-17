@@ -7,8 +7,7 @@ use embassy_time::{Timer, Duration};
 use esp_idf_hal::task::embassy_sync::EspRawMutex;
 use embassy_sync::channel::Sender;
 
-use crate::DATA_CHANNEL_SIZE;
-use crate::data_provider::DataMessage;
+use crate::data_channel;
 
 #[derive(Debug, Clone)]
 pub struct SensorValue {
@@ -153,7 +152,6 @@ where
     E: std::fmt::Debug
 {
     fn init(&mut self) -> Result<(), ()> {
-        //self.bme280.init().map_err(|_| ())
         let res = self.bme280.init();
 
         match res {
@@ -242,22 +240,19 @@ impl SensorManager {
 
 pub async fn run_sensor_manager(
     mut sensor_manager: SensorManager,
-    sender: Sender<'static, EspRawMutex, DataMessage, DATA_CHANNEL_SIZE>
 ) {
     loop {
         sensor_manager.measure();
         sensor_manager.read();
         //sensor_manager.print_sensors_data().await;
 
-        let mut msg: DataMessage = DataMessage {
-            data: Vec::with_capacity(sensor_manager.get_sensors().len())
-        };
+        let mut data = Vec::with_capacity(sensor_manager.get_sensors().len());
 
         for sensor in sensor_manager.get_sensors().iter() {
-            msg.data.push(sensor.get_data().clone());
+            data.push(sensor.get_data().clone());
         }
 
-        sender.send(msg).await;
+        data_channel::publish_async(data).await;
 
         Timer::after(Duration::from_secs(1)).await;
     }

@@ -10,6 +10,8 @@ use embedded_svc::ws::FrameType;
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
 use embassy_sync::mutex::Mutex as AsyncMutex;
 
+use crate::data_channel::get_protobuf_data_async;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WebRequest {
     Request,
@@ -85,7 +87,27 @@ pub async fn receive(
 
             true
         }
-        FrameType::Binary(_) => true,
+        FrameType::Binary(_) => {
+
+            // let mut out_msg = GetRequest::new();
+            // out_msg.name = "John Smith".to_string();
+            // out_msg.age = 25;
+            // out_msg.features.push("one".to_string());
+            // out_msg.features.push("two".to_string());
+            // println!("Message request:\nout_msg {:#?}", out_msg);
+            // let out_bytes: Vec<u8> = out_msg.write_to_bytes().unwrap();
+
+            let out_bytes = get_protobuf_data_async().await;
+
+            let mut sender_lock = sender.lock().await;
+            sender_lock
+                .send(FrameType::Binary(false), &out_bytes)
+                .await
+                .unwrap();
+
+            true
+        }
+
         FrameType::Continue(_) => true,
         FrameType::Ping => true,
         FrameType::Pong => true,
