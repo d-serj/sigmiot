@@ -1,0 +1,19 @@
+[package]
+name = "sigmiot-pc"
+version = "0.1.0"
+authors = ["serj"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures-util = { version = "0.3.28", default-features = false, features = ["sink", "std"] }
+futures-channel = { version = "0.3.28", default-features = false, features = ["std"] }
+tokio = { version = "1.27.0", features = ["full"] }
+tokio-tungstenite = "0.18.0"
+url = "2.3.1"
+protobuf = "3"
+
+[build-dependencies]
+protobuf-codegen = "3"
+protoc-rust = "^2.0"
