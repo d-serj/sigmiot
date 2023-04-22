@@ -1,23 +1,11 @@
 syntax = "proto3";
 
-package sensordata;
+package sigmiotdata;
 
-message GetRequest {
-  string name = 1;
-  int32 age = 2;
-  repeated string features = 3;
-}
-
-message GetResponse {
-  enum Status {
-    OK = 0;
-    ERR = 1;
-    NOT_FOUND = 2;
-  }
-  Status status = 1;
-  string address = 2;
-  string city = 3;
-  int32 zipcode = 4;
+message LogDataResponse {
+  string log_message = 1;
+  uint64 log_timestamp = 2;
+  string log_level = 3;
 }
 
 message SensorValue {
@@ -41,4 +29,9 @@ message SensorDataResponse {
   }
   Status status = 1;
   repeated SensorData sensors_data = 2;
+}
+
+message MessageResponse {
+  SensorDataResponse sensor_data_response = 1;
+  repeated LogDataResponse log_data_response = 2;
 }

@@ -4,8 +4,7 @@ use bme280::i2c::BME280;
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
 use embassy_time::{Timer, Duration};
-use esp_idf_hal::task::embassy_sync::EspRawMutex;
-use embassy_sync::channel::Sender;
+use log::{info, warn};
 
 use crate::data_channel;
 
@@ -50,10 +49,23 @@ impl SensorData {
 }
 
 pub trait Sensor {
+    /// Initialize the sensor
+    /// Returns Ok(()) if the sensor was initialized successfully
+    /// Returns Err(()) if the sensor could not be initialized
     fn init(&mut self) -> Result<(), ()>;
+
+    /// Measure the sensor data
     fn measure_cmd(&mut self);
+
+    /// Read the sensor data
     fn read(&mut self);
+
+    /// Get the sensor data that was read
     fn get_data(&self) -> &SensorData;
+
+    /// Get the sensor name
+    /// # Returns
+    /// * The sensor name
     fn get_name(&self) -> &String;
 }
 
@@ -188,17 +200,28 @@ where
 
 pub struct SensorManager {
     sensors: Vec<Box<dyn Sensor>>,
+    poll_interval: Duration,
 }
 
 impl SensorManager {
-    pub fn new() -> Self {
-        Self { sensors: vec![], }
+    /// Create a new SensorManager
+    /// # Arguments
+    /// * `poll_interval_ms` - The interval in milliseconds between each sensor read
+    pub fn new(poll_interval_ms: u64) -> Self {
+        assert!(poll_interval_ms > 0);
+        Self { sensors: vec![], poll_interval: Duration::from_millis(poll_interval_ms) }
     }
 
+    /// Add a sensor to the SensorManager
+    /// # Arguments
+    /// * `sensor` - The sensor to add
     pub fn add_sensor(&mut self, sensor: Box<dyn Sensor>) {
         self.sensors.push(sensor);
     }
 
+    /// Get the list of sensors
+    /// # Returns
+    /// * The list of sensors
     fn get_sensors(&self) -> &Vec<Box<dyn Sensor>> {
         &self.sensors
     }
@@ -230,9 +253,9 @@ impl SensorManager {
     #[allow(dead_code)]
     pub fn print_sensors_data(&self) {
         for sensor in self.sensors.iter() {
-            println!("{}:", sensor.get_name());
+            info!("{}:", sensor.get_name());
             for value in sensor.get_data().get_values() {
-                println!("{}: {} {}", value.value_name, value.value, value.unit);
+                info!("{}: {} {}", value.value_name, value.value, value.unit);
             }
         }
     }
@@ -242,9 +265,9 @@ pub async fn run_sensor_manager(
     mut sensor_manager: SensorManager,
 ) {
     loop {
+        warn!("SensorManager: read sensors at {} sec", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
         sensor_manager.measure();
         sensor_manager.read();
-        //sensor_manager.print_sensors_data().await;
 
         let mut data = Vec::with_capacity(sensor_manager.get_sensors().len());
 
@@ -254,6 +277,6 @@ pub async fn run_sensor_manager(
 
         data_channel::publish_async(data).await;
 
-        Timer::after(Duration::from_secs(1)).await;
+        Timer::after(sensor_manager.poll_interval).await;
     }
 }

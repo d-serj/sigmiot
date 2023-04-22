@@ -1,15 +1,15 @@
-use std::{sync::{Arc, Mutex}, time::Duration};
+use std::sync::{Arc, Mutex};
 
 use esp_idf_hal::task::embassy_sync::EspRawMutex;
-use embassy_sync::channel::{Receiver, Sender};
 use lazy_static::lazy_static;
-use protobuf::{EnumOrUnknown, Message};
+use log::{debug, info};
+use protobuf::{EnumOrUnknown, Message, MessageField};
 
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 
-use sensors_data::{sensor_data_response, SensorData, SensorValue, SensorDataResponse};
+use sigmiot_data::{sensor_data_response, SensorData, SensorValue, SensorDataResponse, MessageResponse, LogDataResponse};
 
-use crate::sensors;
+use crate::{sensors, sigmiot_log::remote_logger_get_entries};
 
 pub struct DataMessage {
     pub data: Vec<sensors::SensorData>,
@@ -65,7 +65,11 @@ pub fn get_http_data() -> String {
 
 pub async fn get_protobuf_data_async() -> Vec<u8> {
     let sensors_data = get_data_async().await;
+
+    let mut msg_response = MessageResponse::new();
+
     let mut sensor_data_response = SensorDataResponse::new();
+    sensor_data_response.status = EnumOrUnknown::new(sensor_data_response::Status::OK);
 
     for sensor in sensors_data.iter() {
         let mut sensor_data = SensorData::new();
@@ -88,7 +92,20 @@ pub async fn get_protobuf_data_async() -> Vec<u8> {
         sensor_data_response.sensors_data.push(sensor_data);
     }
 
-    sensor_data_response.status = EnumOrUnknown::new(sensor_data_response::Status::OK);
+    msg_response.sensor_data_response = MessageField::<SensorDataResponse>::some(sensor_data_response);
 
-    sensor_data_response.write_to_bytes().unwrap()
+    let log_entries = remote_logger_get_entries();
+    
+    for entry in log_entries {
+        let mut log_entry = LogDataResponse::new();
+        log_entry.log_level = entry.level;
+        log_entry.log_message = entry.message;
+        log_entry.log_timestamp = entry.timestamp;
+
+        msg_response.log_data_response.push(log_entry);
+    }
+
+    info!("Log data response size: {}", msg_response.log_data_response.len());
+
+    msg_response.write_to_bytes().unwrap()
 }

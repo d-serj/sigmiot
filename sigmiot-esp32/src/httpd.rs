@@ -1,6 +1,5 @@
 
 use std::cell::RefCell;
-use std::sync::{Mutex, Arc};
 
 use anyhow::Error;
 
@@ -8,12 +7,11 @@ use embassy_sync::blocking_mutex;
 use embedded_svc::http::server::Method;
 use embedded_svc::io::Write;
 
-use esp_idf_svc::http::server::{fn_handler, EspHttpServer, ws::EspHttpWsProcessor};
+use esp_idf_svc::http::server::{EspHttpServer, ws::EspHttpWsProcessor};
 use embedded_svc::ws::asynch::server::Acceptor;
 use esp_idf_hal::task::embassy_sync::EspRawMutex;
 
 use crate::data_channel::get_http_data;
-use crate::ws::{self, *};
 
 pub struct Config {
     ws_max_con: usize,

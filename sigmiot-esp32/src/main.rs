@@ -1,14 +1,15 @@
 mod data_channel;
-mod data_transfer;
+mod httpd;
 mod sensors;
 mod spawn;
 mod wifi;
 mod ws;
+mod sigmiot_log;
 
-use data_transfer::httpd;
+use httpd::httpd;
 use esp_idf_hal::task::executor::EspExecutor;
 use esp_idf_svc::log::EspLogger;
-use esp_idf_sys::{self as _, EspError};
+use esp_idf_sys::{self as _};
 // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 use std::time::Duration;
 
@@ -20,21 +21,22 @@ use esp_idf_hal::units::FromValueType;
 use sensors::{BME280Sensor, GY30Sensor, Sensor};
 use wifi::Wifi;
 
-static LOGGER: EspLogger = EspLogger;
+use crate::sigmiot_log::sigmiot_log_init;
 
 fn main() {
     // It is necessary to call this function once. Otherwise some patches to the runtime
     // implemented by esp-idf-sys might not link properly. See https://github.com/esp-rs/esp-idf-template/issues/71
     esp_idf_sys::link_patches();
 
+    sigmiot_log_init();
+
     // Bind the log crate to the ESP Logging facilities
-    // esp_idf_svc::log::EspLogger::initialize_default();
-    log::set_logger(&LOGGER)
-        .map(|()| {
-            LOGGER.initialize();
-            log::set_max_level(log::LevelFilter::Debug)
-        })
-        .expect("Configure and set logger with log level");
+    // log::set_logger(&LOGGER)
+    //     .map(|()| {
+    //         LOGGER.initialize();
+    //         log::set_max_level(log::LevelFilter::Debug)
+    //     })
+    //     .expect("Configure and set logger with log level");
 
     let peripherals = Peripherals::take().unwrap();
 
@@ -44,7 +46,7 @@ fn main() {
     let i2c0 = peripherals.i2c0;
 
     let mut wifi = Wifi::new(peripherals.modem);
-    //wifi.scan().unwrap();
+
     wifi.connect("sakhmil", "qlsh7760").unwrap();
 
     // for i in 0..127 {
@@ -70,7 +72,7 @@ fn main() {
     let mut tasks_high_prio = heapless::Vec::<_, 16>::new();
     let mut executor_high_prio = EspExecutor::<16, _>::new();
 
-    let mut sensor_manager = sensors::SensorManager::new();
+    let mut sensor_manager = sensors::SensorManager::new(1000);
     sensor_manager.add_sensor(bme280);
     sensor_manager.add_sensor(gy30);
 
