@@ -14,24 +14,20 @@ message SensorValue {
   string value_unit = 3;
 }
 
-message SensorData {
+message SensorDataResponse {
   string sensor_name = 1;
   string sensor_type = 2;
   string sensor_location = 3;
   repeated SensorValue sensor_values = 4;
 }
 
-message SensorDataResponse {
+message MessageResponse {
   enum Status {
     OK = 0;
     ERR = 1;
     NOT_FOUND = 2;
   }
   Status status = 1;
-  repeated SensorData sensors_data = 2;
-}
-
-message MessageResponse {
-  SensorDataResponse sensor_data_response = 1;
-  repeated LogDataResponse log_data_response = 2;
+  repeated SensorDataResponse sensors_data_response = 2;
+  repeated LogDataResponse log_data_response = 3;
 }

@@ -15,20 +15,19 @@ use tui::text::{Span, Spans};
 use tui::widgets::{Block, Borders, List, ListItem, Paragraph};
 use tui::{Frame, Terminal};
 
-use log::{debug, error, info, trace, warn};
-use simplelog::{Config, LevelFilter, SimpleLogger, WriteLogger};
+use log::{debug, error, info};
+use simplelog::{Config, LevelFilter, WriteLogger};
 use std::fs::File;
 
-use futures_util::{future, pin_mut, StreamExt};
-use tokio::io::{AsyncReadExt, AsyncWriteExt, self};
+use futures_util::StreamExt;
 use tokio::sync::mpsc;
-use tokio_tungstenite::{connect_async, tungstenite::protocol};
+use tokio_tungstenite::connect_async;
 
-use protobuf::{Enum, EnumOrUnknown, Message};
+use protobuf::{EnumOrUnknown, Message};
 
 include!(concat!(env!("OUT_DIR"), "/protos/mod.rs"));
 
-use sigmiot_data::{sensor_data_response, LogDataResponse, MessageResponse, SensorDataResponse};
+use sigmiot_data::{MessageResponse, message_response};
 
 #[derive(Debug, Clone)]
 pub struct SensorValue {
@@ -185,11 +184,10 @@ async fn handle_binary_message(
 
     debug!("MessageResponse: {:?}", message_resp);
 
-    if message_resp.sensor_data_response.status
-        == EnumOrUnknown::new(sensor_data_response::Status::OK)
+    if message_resp.status
+        == EnumOrUnknown::new(message_response::Status::OK)
     {
-        let in_msg = message_resp.sensor_data_response;
-        let sensors_data = &in_msg.sensors_data;
+        let sensors_data = &message_resp.sensors_data_response;
         let channel_msg: Vec<SensorData> = sensors_data
             .iter()
             .map(|sensor| SensorData {
@@ -212,7 +210,7 @@ async fn handle_binary_message(
             .await
             .unwrap();
     } else {
-        error!("Error: {:?}", message_resp.sensor_data_response.status);
+        error!("Error: {:?}", message_resp.status);
     }
 
     let logs = message_resp.log_data_response;
