@@ -1,9 +1,10 @@
 use std::collections::HashMap;
+use std::ops::ControlFlow;
 
 use bme280::i2c::BME280;
+use embassy_time::{Duration, Timer};
 use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::i2c::{Read, Write, WriteRead};
-use embassy_time::{Timer, Duration};
 use log::{info, warn};
 
 use crate::data_channel;
@@ -18,13 +19,17 @@ pub struct SensorValue {
 #[derive(Debug, Clone)]
 pub struct SensorData {
     name: String,
+    sensor_type: Vec<String>,
+    location: String,
     values: HashMap<String, SensorValue>,
 }
 
 impl SensorData {
-    pub fn new(sensor_name: &str) -> Self {
+    pub fn new(sensor_name: &str, sensor_type: Vec<String>, sensor_location: String) -> Self {
         Self {
             name: sensor_name.into(),
+            sensor_type,
+            location: sensor_location,
             values: HashMap::new(),
         }
     }
@@ -84,12 +89,16 @@ where
     const GY30_I2C_ADDR: u8 = 0x23;
     const BH1750_CONTINUOUS_HIGH_RES_MODE: u8 = 0x10;
 
-    pub fn new(sensor_name: &str, i2c: I2C, delay: D) -> Self {
+    pub fn new(sensor_name: &str, sensor_location: &str, i2c: I2C, delay: D) -> Self {
         Self {
             i2c,
             addr: GY30Sensor::<I2C, D>::GY30_I2C_ADDR,
             delay,
-            data: SensorData::new(sensor_name),
+            data: SensorData::new(
+                sensor_name,
+                vec!["illuminance".into()],
+                sensor_location.into(),
+            ),
         }
     }
 }
@@ -115,10 +124,16 @@ where
         let mut buffer: [u8; 2] = [0, 0];
 
         // Read the illumination level
-        self.i2c.write(self.addr, &[0x00]).map_err(|_| ()).expect("Cannot write I2c!");
+        self.i2c
+            .write(self.addr, &[0x00])
+            .map_err(|_| ())
+            .expect("Cannot write I2c!");
         // Should wait more than 180ms
         self.delay.delay_ms(200);
-        self.i2c.read(self.addr, &mut buffer).map_err(|_| ()).expect("Cannot read I2c!");
+        self.i2c
+            .read(self.addr, &mut buffer)
+            .map_err(|_| ())
+            .expect("Cannot read I2c!");
 
         let illumination_level = ((buffer[0] as u16) << 8) | (buffer[1] as u16);
 
@@ -149,10 +164,14 @@ where
     I2C: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>,
     D: DelayMs<u8>,
 {
-    pub fn new(sensor_name: &str, i2c: I2C, delay: D) -> Self {
+    pub fn new(sensor_name: &str, sensor_location: &str, i2c: I2C, delay: D) -> Self {
         Self {
             bme280: BME280::new_primary(i2c, delay),
-            data: SensorData::new(sensor_name),
+            data: SensorData::new(
+                sensor_name,
+                vec!["temperature".into(), "humidity".into(), "pressure".into()],
+                sensor_location.into(),
+            ),
         }
     }
 }
@@ -161,7 +180,7 @@ impl<I2C, D, E> Sensor for BME280Sensor<I2C, D>
 where
     I2C: Read<Error = E> + Write<Error = E> + WriteRead<Error = E>,
     D: DelayMs<u8>,
-    E: std::fmt::Debug
+    E: std::fmt::Debug,
 {
     fn init(&mut self) -> Result<(), ()> {
         let res = self.bme280.init();
@@ -209,7 +228,10 @@ impl SensorManager {
     /// * `poll_interval_ms` - The interval in milliseconds between each sensor read
     pub fn new(poll_interval_ms: u64) -> Self {
         assert!(poll_interval_ms > 0);
-        Self { sensors: vec![], poll_interval: Duration::from_millis(poll_interval_ms) }
+        Self {
+            sensors: vec![],
+            poll_interval: Duration::from_millis(poll_interval_ms),
+        }
     }
 
     /// Add a sensor to the SensorManager
@@ -226,14 +248,29 @@ impl SensorManager {
         &self.sensors
     }
 
-    fn get_sensor(&self, sensor_name: &str) -> Option<&Box<dyn Sensor>> {
-        self.get_sensors().iter().find(|s| s.get_name() == sensor_name)
+    /// Get a sensors list by a sensor type
+    /// # Arguments
+    /// * `sensor_type` - The sensor type as string to filter on
+    fn get_sensors_by_type(&self, sensor_type: &str) -> Vec<&Box<dyn Sensor>> {
+        self.get_sensors()
+            .iter()
+            .filter(|s| s.get_data().sensor_type.iter().any(|t| t == &sensor_type))
+            .collect()
     }
 
+    #[allow(dead_code)]
+    fn get_sensor(&self, sensor_name: &str) -> Option<&Box<dyn Sensor>> {
+        self.get_sensors()
+            .iter()
+            .find(|s| s.get_name() == sensor_name)
+    }
+
+    #[allow(dead_code)]
     pub fn get_sensor_data(&self, sensor_name: &str) -> Option<&SensorData> {
         self.get_sensor(sensor_name).map(|s| s.get_data())
     }
 
+    #[allow(dead_code)]
     pub fn get_sensor_values(&self, sensor_name: &str) -> Option<Vec<&SensorValue>> {
         self.get_sensor_data(sensor_name).map(|s| s.get_values())
     }
@@ -261,11 +298,16 @@ impl SensorManager {
     }
 }
 
-pub async fn run_sensor_manager(
-    mut sensor_manager: SensorManager,
-) {
+pub async fn run_sensor_manager(mut sensor_manager: SensorManager) {
     loop {
-        warn!("SensorManager: read sensors at {} sec", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
+        log::debug!(
+            "SensorManager: read sensors at {} sec",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
+
         sensor_manager.measure();
         sensor_manager.read();
 
@@ -275,8 +317,32 @@ pub async fn run_sensor_manager(
             data.push(sensor.get_data().clone());
         }
 
+        if let ControlFlow::Break(_) = check_illuminance(&sensor_manager) {
+            continue;
+        }
+
         data_channel::publish_async(data).await;
 
         Timer::after(sensor_manager.poll_interval).await;
     }
+}
+
+fn check_illuminance(sensor_manager: &SensorManager) -> ControlFlow<()> {
+    let illum_sensors = sensor_manager.get_sensors_by_type("illuminance");
+    if illum_sensors.len() == 0 {
+        log::error!("no illuminance sensor found");
+        return ControlFlow::Break(());
+    }
+
+    let average_illum = illum_sensors
+        .iter()
+        .map(|s| s.get_data().get_values()[0].value)
+        .sum::<f32>()
+        / illum_sensors.len() as f32;
+
+    if average_illum < 100.0 {
+        log::warn!("illuminance is too low: {} lx", average_illum);
+    }
+
+    ControlFlow::Continue(())
 }

@@ -1,14 +1,13 @@
 
 use std::cell::Cell;
 
-use log::{info, debug};
+use log::debug;
 
 use embedded_svc::ws::asynch::server::Acceptor;
 use embedded_svc::ws::FrameType;
 
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
 use embassy_sync::mutex::Mutex as AsyncMutex;
-use embassy_time::{Timer, Duration};
 use embassy_futures::select::{select, Either};
 
 use crate::data_channel::get_protobuf_data_async;
@@ -63,7 +62,7 @@ async fn process_connection(
 async fn send(
     sender: &AsyncMutex<impl RawMutex, impl embedded_svc::ws::asynch::Sender>,
     count_frames: &AsyncMutex<impl RawMutex, Cell<u32>>,
-    msg: &Vec<u8>,
+    msg: &[u8],
 ) {
     let count = count_frames.lock().await;
     count.set(count.get() + 1);

@@ -1,15 +1,14 @@
 mod data_channel;
 mod httpd;
 mod sensors;
+mod sigmiot_log;
 mod spawn;
 mod wifi;
 mod ws;
-mod sigmiot_log;
 
-use httpd::httpd;
 use esp_idf_hal::task::executor::EspExecutor;
-use esp_idf_svc::log::EspLogger;
 use esp_idf_sys::{self as _};
+use httpd::httpd;
 // If using the `binstart` feature of `esp-idf-sys`, always keep this module imported
 use std::time::Duration;
 
@@ -62,10 +61,20 @@ fn main() {
 
     let bus: &'static _ = shared_bus::new_std!(i2c::I2cDriver = i2c_inst).unwrap();
 
-    let mut bme280 = Box::new(BME280Sensor::new("BME280", bus.acquire_i2c(), delay::Ets));
+    let mut bme280 = Box::new(BME280Sensor::new(
+        "BME280",
+        "room1",
+        bus.acquire_i2c(),
+        delay::Ets,
+    ));
     bme280.init().unwrap();
 
-    let gy30 = Box::new(GY30Sensor::new("GY30", bus.acquire_i2c(), delay::Ets));
+    let gy30 = Box::new(GY30Sensor::new(
+        "GY30",
+        "room1",
+        bus.acquire_i2c(),
+        delay::Ets,
+    ));
 
     let (_http, ws_acceptor) = httpd().unwrap();
 

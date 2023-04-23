@@ -1,10 +1,8 @@
 
 
-use esp_idf_hal::task::embassy_sync::EspRawMutex;
 use esp_idf_hal::task::executor::Executor;
 use embedded_svc::ws::asynch::server::Acceptor;
 use esp_idf_hal::task::executor::{Task, Local, Monitor, SpawnError, Wait};
-use embassy_sync::channel::Sender;
 
 use crate::sensors;
 use crate::ws;

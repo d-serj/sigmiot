@@ -1,6 +1,6 @@
-use std::sync::{Mutex, Arc};
+use std::sync::Mutex;
 use esp_idf_hal::task::embassy_sync::EspRawMutex;
-use log::{error, Log, Record, Level, Metadata, info};
+use log::{error, Log, Record, Metadata, info};
 use esp_idf_svc::log::EspLogger;
 use lazy_static::lazy_static;
 
@@ -54,7 +54,7 @@ impl RemoteLogger {
         Self { enabled: false, }
     }
 
-    fn enabled(&self, metadata: &Metadata) -> bool {
+    fn enabled(&self, _metadata: &Metadata) -> bool {
         self.enabled
     }
 
@@ -74,7 +74,9 @@ impl RemoteLogger {
     }
 
     fn flush(&self) {
-        while let Ok(_) = LOG_CHANNEL.try_recv() {}
+        while LOG_CHANNEL.try_recv().is_ok() {
+            // Drain the channel
+        }
     }
 }
 
