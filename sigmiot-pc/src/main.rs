@@ -94,8 +94,6 @@ async fn main() {
 
     info!("Starting {}...", CARGO_PKG_NAME);
 
-    // Encode example request
-    //let url = "ws://192.168.116.62/ws";
     let connect_addr = env::args()
         .nth(1)
         .unwrap_or_else(|| panic!("This program requires at least one argument"));
