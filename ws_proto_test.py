@@ -80,30 +80,46 @@ def print_message(message):
         print(log_data.log_level)
 
 async def message_sender(websocket, path):
-    message = sigmiot_data_pb2.MessageResponse()
-
-    message.status = sigmiot_data_pb2.MessageResponse.Status.OK
-
-    sensor1_value1 = create_sensor_value("temperature", 1.0, "C")
-    sensor1_value2 = create_sensor_value("humidity", 2.0, "%")
-    sensor1_values = [sensor1_value1, sensor1_value2]
-    sensor1 = create_sensor_data("sensor1", "temperature", "room1", sensor1_values)
-
-    message = append_sensor_data_to_message(message, sensor1)
-
-    sensor2_value1 = create_sensor_value("temperature", 3.0, "C")
-    sensor2_value2 = create_sensor_value("humidity", 4.0, "%")
-    sensor2_values = [sensor2_value1, sensor2_value2]
-    sensor2 = create_sensor_data("sensor2", "temperature", "room2", sensor2_values)
-
-    message = append_sensor_data_to_message(message, sensor2)
-
-    message = append_log_data_to_message(message, "log message 1", 123456789, "WARN")
-    message = append_log_data_to_message(message, "log message 2", 123456789, "TRACE")
-
-    print_message(message)
+    temp = 1.0
+    hum = 2
 
     while websocket.open:
+        if temp < 30:
+            temp += 1.0
+        else:
+            temp = 5.0
+
+        if hum < 90:
+            hum += 1
+        else:
+            hum = 10
+
+        message = sigmiot_data_pb2.MessageResponse()
+
+        message.status = sigmiot_data_pb2.MessageResponse.Status.OK
+
+        sensor1_value1 = create_sensor_value("temperature", temp, "C")
+        sensor1_value2 = create_sensor_value("humidity", hum, "%")
+        sensor1_value3 = create_sensor_value("pressure", 3.0, "Pa")
+        sensor1_values = [sensor1_value1, sensor1_value2, sensor1_value3]
+        sensor1 = create_sensor_data("sensor1", "temperature", "room1", sensor1_values)
+
+        message = append_sensor_data_to_message(message, sensor1)
+
+        sensor2_value1 = create_sensor_value("temperature", temp + 1.0, "C")
+        sensor2_value2 = create_sensor_value("humidity", hum + 1, "%")
+        sensor2_values = [sensor2_value1, sensor2_value2]
+        sensor2 = create_sensor_data("sensor2", "temperature", "room2", sensor2_values)
+
+        message = append_sensor_data_to_message(message, sensor2)
+
+        # Get system time
+        time = asyncio.get_event_loop().time()
+        message = append_log_data_to_message(message, "log message 1", int(time), "WARN")
+        message = append_log_data_to_message(message, "log message 2", int(time), "TRACE")
+
+        print_message(message)
+
         await websocket.send(message.SerializeToString())
         # Wait for one second before sending the next message
         await asyncio.sleep(1)
