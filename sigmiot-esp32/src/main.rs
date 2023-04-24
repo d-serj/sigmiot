@@ -46,7 +46,7 @@ fn main() {
 
     let mut wifi = Wifi::new(peripherals.modem);
 
-    wifi.connect("sakhmil", "qlsh7760").unwrap();
+    wifi.connect("test_ssid", "test_psk").unwrap();
 
     // for i in 0..127 {
     //     let res = i2c_inst.read(i, &mut buffer, 10);
